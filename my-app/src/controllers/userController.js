@@ -1,4 +1,5 @@
 import { registerUser, loginUser, getUserStats } from "../services/userService.js";
+import { setRefreshCookie } from "../untils/cookieUtils.js";
 
 export async function register(req, res) {
   const { fullName, email, password, phoneNumber } = req.body;
@@ -21,8 +22,9 @@ export async function login(req, res) {
   }
 
   try {
-    const result = await loginUser(email, password);
-    res.json(result);
+    const { accessToken, refreshToken, user } = await loginUser(email, password);
+    setRefreshCookie(res, refreshToken);
+    res.json({ accessToken, user });
   } catch (error) {
     res.status(401).json({ message: error.message });
   }

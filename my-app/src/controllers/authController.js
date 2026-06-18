@@ -1,39 +1,57 @@
-import { loginAdmin, refreshAccessToken } from "../services/authService.js";
+import {
+  loginAdmin,
+  refreshAccessToken,
+  logoutSession,
+} from "../services/authService.js";
+import {
+  setRefreshCookie,
+  clearRefreshCookie,
+  REFRESH_COOKIE_NAME,
+} from "../untils/cookieUtils.js";
 
 export async function login(req, res) {
   const { username, password } = req.body;
   if (!username || !password) {
-    return res
-      .status(400)
-      .json({ message: "Username and password are required" });
+    return res.status(400).json({ message: "Username and password are required" });
   }
 
   try {
-    const result = await loginAdmin(username, password);
-    res.json(result);
+    const { accessToken, refreshToken, admin } = await loginAdmin(username, password);
+    setRefreshCookie(res, refreshToken);
+    res.json({ accessToken, admin });
   } catch (error) {
     res.status(401).json({ message: error.message });
   }
 }
 
 export async function refresh(req, res) {
-  const { refreshToken } = req.body;
-  if (!refreshToken) {
-    return res.status(400).json({ message: "Refresh token is required" });
+  const token = req.cookies?.[REFRESH_COOKIE_NAME];
+  if (!token) {
+    return res.status(401).json({ message: "Refresh token is required" });
   }
 
   try {
-    const result = refreshAccessToken(refreshToken);
-    res.json(result);
+    const { accessToken, refreshToken } = await refreshAccessToken(token);
+    setRefreshCookie(res, refreshToken);
+    res.json({ accessToken });
   } catch (error) {
+    clearRefreshCookie(res);
     res.status(401).json({ message: error.message });
   }
 }
 
+export async function logout(req, res) {
+  const token = req.cookies?.[REFRESH_COOKIE_NAME];
+  try {
+    await logoutSession(token);
+  } catch {
+    // best-effort: clear the cookie regardless
+  }
+  clearRefreshCookie(res);
+  res.status(204).end();
+}
 
-// Endpoint protected — verifyToken đã gắn payload access token vào req.admin.
-// Trả thẳng payload (không chạm DB) để xác thực phiên còn hiệu lực; 401 ở đây
-// chính là tín hiệu kích hoạt refresh ở frontend.
+// Protected — verifyToken attached the access payload to req.admin.
 export function me(req, res) {
   res.json({ admin: req.admin });
 }
