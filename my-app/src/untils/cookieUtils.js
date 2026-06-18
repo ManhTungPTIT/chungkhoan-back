@@ -1,5 +1,8 @@
+import jwt from "jsonwebtoken";
+
 export const REFRESH_COOKIE_NAME = "refreshToken";
 
+// Fallback only: used when the refresh token has no decodable exp claim.
 // Keep in sync with REFRESH_TOKEN_EXPIRES_IN (default 7d)
 const REFRESH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -15,7 +18,12 @@ export function refreshCookieOptions() {
 }
 
 export function setRefreshCookie(res, token) {
-  res.cookie(REFRESH_COOKIE_NAME, token, refreshCookieOptions());
+  const opts = refreshCookieOptions();
+  const decoded = jwt.decode(token);
+  if (decoded?.exp) {
+    opts.maxAge = decoded.exp * 1000 - Date.now();
+  }
+  res.cookie(REFRESH_COOKIE_NAME, token, opts);
 }
 
 export function clearRefreshCookie(res) {

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import jwt from "jsonwebtoken";
 
 describe("cookieUtils", () => {
   const OLD_ENV = process.env;
@@ -36,5 +37,36 @@ describe("cookieUtils", () => {
       "tok123",
       expect.objectContaining({ httpOnly: true, path: "/api/auth" })
     );
+  });
+});
+
+describe("setRefreshCookie maxAge derives from token exp", () => {
+  it("uses the token's exp to set maxAge", () => {
+    process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
+    const token = jwt.sign({ id: "u1", type: "refresh" }, process.env.JWT_REFRESH_SECRET, {
+      expiresIn: "30d",
+    });
+    const calls = [];
+    const res = { cookie: (name, value, opts) => calls.push({ name, value, opts }) };
+
+    // dynamic import to pick up current module state
+    return import("../cookieUtils.js").then(({ setRefreshCookie }) => {
+      setRefreshCookie(res, token);
+      const { opts } = calls[0];
+      const expectedMs = 30 * 24 * 60 * 60 * 1000;
+      // allow a few seconds of slack for execution time
+      expect(opts.maxAge).toBeGreaterThan(expectedMs - 10000);
+      expect(opts.maxAge).toBeLessThanOrEqual(expectedMs);
+    });
+  });
+
+  it("falls back to default maxAge when token has no exp", () => {
+    const calls = [];
+    const res = { cookie: (name, value, opts) => calls.push({ name, value, opts }) };
+    return import("../cookieUtils.js").then(({ setRefreshCookie }) => {
+      setRefreshCookie(res, "not-a-jwt");
+      expect(typeof calls[0].opts.maxAge).toBe("number");
+      expect(calls[0].opts.maxAge).toBeGreaterThan(0);
+    });
   });
 });
