@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { User } from "../models/userModel.js";
 import { signTokens } from "../untils/tokenUtils.js";
+import { saveRefreshToken } from "./refreshTokenService.js";
 
 export async function registerUser({ fullName, email, password, phoneNumber }) {
   const existing = await User.findOne({ email });
@@ -35,6 +36,7 @@ export async function loginUser(email, password) {
     email: user.email,
     role: user.role,
   });
+  await saveRefreshToken({ subjectId: user._id, role: user.role, refreshToken });
 
   return {
     accessToken,
