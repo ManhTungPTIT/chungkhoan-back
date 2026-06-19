@@ -28,3 +28,11 @@ export function verifyToken(req, res, next) {
     res.status(401).json({ message: "Invalid or expired token" });
   }
 }
+
+// Chạy SAU verifyToken: chỉ cho phép tài khoản admin đi tiếp.
+export function requireAdmin(req, res, next) {
+  if (req.admin?.role !== "admin") {
+    return res.status(403).json({ message: "Admin only" });
+  }
+  next();
+}

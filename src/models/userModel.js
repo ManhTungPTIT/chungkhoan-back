@@ -7,10 +7,13 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    // Tài khoản có thể là email HOẶC số điện thoại — không bắt buộc email.
+    // sparse: index unique bỏ qua doc thiếu trường (tránh đụng nhau ở null).
     email: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       trim: true,
       lowercase: true,
     },
@@ -20,6 +23,9 @@ const userSchema = new mongoose.Schema(
     },
     phoneNumber: {
       type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
     },
     avatarUrl: {
       type: String,
@@ -31,9 +37,16 @@ const userSchema = new mongoose.Schema(
       enum: ["admin", "user"],
       default: "user",
     },
+    // pending = chờ admin duyệt | active = đã duyệt | rejected = bị từ chối
+    // locked = bị khóa | deleted = đã xóa (soft delete)
     status: {
       type: String,
-      default: "active",
+      default: "pending",
+    },
+    // Ngày hết hạn gói. null = không giới hạn. Quá hạn → login bị chặn.
+    expiresAt: {
+      type: Date,
+      default: null,
     },
     // Mốc hoạt động gần nhất — cập nhật khi login/register và ở mỗi request có
     // token user hợp lệ (verifyToken). Dùng để tính online/offline.
