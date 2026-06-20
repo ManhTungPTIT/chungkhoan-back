@@ -19,8 +19,8 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK" });
 });
 
-app.use("/auth", authRouter);
-app.use("/user", userRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/user", userRouter);
 
 // 404 handler
 app.use((req, res) => {
