@@ -2,8 +2,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import authRouter from "./my-app/src/routers/authRouter.js";
-import userRouter from "./my-app/src/routers/userRouter.js";
+import authRouter from "./src/routers/authRouter.js";
+import userRouter from "./src/routers/userRouter.js";
 
 const app = express();
 app.use(
@@ -19,8 +19,8 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK" });
 });
 
-app.use("/api/auth", authRouter);
-app.use("/api/user", userRouter);
+app.use("/auth", authRouter);
+app.use("/user", userRouter);
 
 // 404 handler
 app.use((req, res) => {

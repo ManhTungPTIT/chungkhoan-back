@@ -57,7 +57,7 @@ export async function loginUser({ email, phoneNumber, password }) {
   return {
     accessToken,
     refreshToken,
-    user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role },
+    user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role, phoneNumber: user.phoneNumber, avatarUrl: user.avatarUrl },
   };
 }
 
