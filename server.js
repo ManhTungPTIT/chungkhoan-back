@@ -1,6 +1,8 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import app from "./app.js";
 import { connectDB } from "./src/db.js";
-import "dotenv/config";
 
 
 async function startServer() {
