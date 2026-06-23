@@ -10,11 +10,12 @@ import {
 } from "./refreshTokenService.js";
 
 export async function loginAdmin(username, password) {
-  const admin = await Admin.findOne({ username });
-  if (!admin) throw new Error("Invalid credentials");
+  const admin = await Admin.findOne({ username : username  });
+  
+  if (!admin) throw new Error("Tài khoản sai");
 
   const valid = await bcrypt.compare(password, admin.password);
-  if (!valid) throw new Error("Invalid credentials");
+  if (!valid) throw new Error("mật khẩu sai");
 
   const { accessToken, refreshToken } = signTokens({
     id: admin._id,
