@@ -1,6 +1,7 @@
 import {
   registerUser,
   loginUser,
+  getCurrentUser,
   getUserStats,
   listPendingUsers,
   approveUser,
@@ -12,6 +13,7 @@ import {
   setUserPackage,
 } from "../services/userService.js";
 import { setRefreshCookie } from "../untils/cookieUtils.js";
+import jwt from "jsonwebtoken";
 
 export async function register(req, res) {
   const { fullName, email, phoneNumber, password } = req.body;
@@ -47,6 +49,18 @@ export async function login(req, res) {
     res.json({ accessToken, user });
   } catch (error) {
     res.status(401).json({ message: error.message });
+  }
+}
+
+// Thông tin của chính user đang đăng nhập. id lấy từ token (req.admin).
+export async function me(req, res) {
+  try {
+    const data = jwt.decode(req.query.token);
+    console.log(data)
+    res.json(await getCurrentUser(data.id));
+  } catch (error) {
+    const status = error.message === "User not found" ? 404 : 500;
+    res.status(status).json({ message: error.message });
   }
 }
 

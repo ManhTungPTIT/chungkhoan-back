@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { User } from "../models/userModel.js";
+import {Admin} from "../models/adminModel.js"
 import { signTokens } from "../untils/tokenUtils.js";
 import { saveRefreshToken } from "./refreshTokenService.js";
 
@@ -59,6 +60,26 @@ export async function loginUser({ email, phoneNumber, password }) {
     refreshToken,
     user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role, phoneNumber: user.phoneNumber, avatarUrl: user.avatarUrl },
   };
+}
+
+// Thông tin của chính user đang đăng nhập (cho trang InfoUser). Chỉ lấy các
+// trường cần hiển thị — không kéo password.
+export async function getCurrentUser(id) {
+  const user = await User.findById(id);
+  const admin = await Admin.findById(id);
+  console.log(admin)
+  if (!user && !admin) throw new Error("User not found");
+  if(user) return {
+    id: user._id,
+    fullName: user.fullName,
+    email: user.email,
+    role: user.role,
+    phoneNumber: user.phoneNumber,
+    avatarUrl: user.avatarUrl,
+  };
+  else{
+    throw new Error("You are admin")
+  }
 }
 
 // Thống kê người dùng. online = có lastActive trong vòng ONLINE_WINDOW_MS gần
@@ -149,11 +170,21 @@ export function deleteUser(id) {
   return setStatus(id, "deleted");
 }
 
+// Gia hạn gói: cộng dồn vào hạn còn lại nếu user CHƯA hết hạn, ngược lại
+// (đã hết hạn hoặc chưa có gói) thì tính từ hôm nay. Tránh làm mất số ngày
+// còn lại khi admin gia hạn cho tài khoản vẫn đang hiệu lực.
 export async function setUserPackage(id, days) {
   const n = Number(days);
   if (!Number.isFinite(n) || n <= 0) throw new Error("Invalid package");
-  const expiresAt = new Date(Date.now() + n * 24 * 60 * 60 * 1000);
-  const user = await User.findByIdAndUpdate(id, { expiresAt }, { new: true });
+
+  const user = await User.findById(id);
   if (!user) throw new Error("User not found");
+
+  const now = Date.now();
+  const current = user.expiresAt ? new Date(user.expiresAt).getTime() : 0;
+  const base = current > now ? current : now;
+  user.expiresAt = new Date(base + n * 24 * 60 * 60 * 1000);
+  await user.save();
+
   return { id: user._id, expiresAt: user.expiresAt };
 }
