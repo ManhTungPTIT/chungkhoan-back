@@ -11,6 +11,7 @@ import {
   unlockUser,
   deleteUser,
   setUserPackage,
+  changePassword
 } from "../services/userService.js";
 import { setRefreshCookie } from "../untils/cookieUtils.js";
 import jwt from "jsonwebtoken";
@@ -49,6 +50,23 @@ export async function login(req, res) {
     res.json({ accessToken, user });
   } catch (error) {
     res.status(401).json({ message: error.message });
+  }
+}
+
+//doi mat khau — danh tính lấy từ access token đã verify (req.admin.id)
+export async function changePass(req, res) {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res
+      .status(400)
+      .json({ message: "Current and new password are required" });
+  }
+  try {
+    await changePassword(req.admin.id, currentPassword, newPassword);
+    res.status(200).json({ message: "Password changed" });
+  } catch (error) {
+    const code = error.message === "User not found" ? 404 : 400;
+    res.status(code).json({ message: error.message });
   }
 }
 

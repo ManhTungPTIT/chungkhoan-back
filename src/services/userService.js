@@ -62,12 +62,26 @@ export async function loginUser({ email, phoneNumber, password }) {
   };
 }
 
+//doi mat khau — tra cứu theo id, kiểm mật khẩu hiện tại, hash mật khẩu mới
+export async function changePassword(id, currentPassword, newPassword) {
+  const user = await User.findById(id);
+  if (!user) throw new Error("User not found");
+
+  const valid = await bcrypt.compare(currentPassword, user.password);
+  if (!valid) throw new Error("Mật khẩu hiện tại không chính xác");
+
+  user.password = await bcrypt.hash(newPassword, 12);
+  await user.save();
+
+  return true;
+}
+
 // Thông tin của chính user đang đăng nhập (cho trang InfoUser). Chỉ lấy các
 // trường cần hiển thị — không kéo password.
 export async function getCurrentUser(id) {
   const user = await User.findById(id);
   const admin = await Admin.findById(id);
-  console.log(admin)
+  
   if (!user && !admin) throw new Error("User not found");
   if(user) return {
     id: user._id,

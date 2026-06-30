@@ -12,6 +12,7 @@ import {
   unlock,
   remove,
   setPackage,
+  changePass
 } from "../controllers/userController.js";
 import { verifyToken, requireAdmin } from "../middlewares/authMiddleware.js";
 
@@ -21,6 +22,7 @@ router.post("/register", register);
 router.post("/login", login);
 router.get("/me", me);
 router.get("/stats", verifyToken, stats);
+router.patch("/changePassword", verifyToken, changePass)
 
 // Quản lý người dùng — chỉ admin
 router.get("/", verifyToken, requireAdmin, list);
