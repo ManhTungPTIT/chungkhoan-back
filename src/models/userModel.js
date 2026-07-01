@@ -48,6 +48,24 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Yêu cầu đăng ký gói của user, chờ admin duyệt. Mỗi user 1 yêu cầu tại một
+    // thời điểm (nhúng thay vì collection riêng). status: pending → admin duyệt
+    // (approved, cộng days vào expiresAt) hoặc từ chối (rejected). _id: false vì
+    // là bản ghi con đơn, không cần id riêng — admin thao tác theo user._id.
+    packageRequest: {
+      type: new mongoose.Schema(
+        {
+          days: { type: Number },
+          status: {
+            type: String,
+            enum: ["pending", "approved", "rejected"],
+          },
+          requestedAt: { type: Date },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     // Mốc hoạt động gần nhất — cập nhật khi login/register và ở mỗi request có
     // token user hợp lệ (verifyToken). Dùng để tính online/offline.
     lastActive: {

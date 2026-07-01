@@ -11,7 +11,11 @@ import {
   unlockUser,
   deleteUser,
   setUserPackage,
-  changePassword
+  changePassword,
+  requestPackage,
+  listPendingPackageRequests,
+  approvePackageRequest,
+  rejectPackageRequest,
 } from "../services/userService.js";
 import { setRefreshCookie } from "../untils/cookieUtils.js";
 import jwt from "jsonwebtoken";
@@ -68,6 +72,40 @@ export async function changePass(req, res) {
     const code = error.message === "User not found" ? 404 : 400;
     res.status(code).json({ message: error.message });
   }
+}
+
+// User gửi yêu cầu đăng ký gói (chờ admin duyệt). Danh tính lấy từ token
+// (req.admin.id) — KHÔNG lấy từ body. FE gửi { days }.
+export async function packageRequest(req, res) {
+  const { days } = req.body;
+  if (!days) {
+    return res.status(400).json({ message: "days is required" });
+  }
+  try {
+    const result = await requestPackage(req.admin.id, days);
+    res.status(201).json({ packageRequest: result });
+  } catch (error) {
+    const code = error.message === "User not found" ? 404 : 400;
+    res.status(code).json({ message: error.message });
+  }
+}
+
+// Admin: danh sách yêu cầu gói đang chờ duyệt.
+export async function packageRequestsPending(req, res) {
+  try {
+    res.json(await listPendingPackageRequests());
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+// Admin duyệt / từ chối yêu cầu gói theo user id (req.params.id).
+export function approvePackage(req, res) {
+  return runUserAction(res, () => approvePackageRequest(req.params.id));
+}
+
+export function rejectPackage(req, res) {
+  return runUserAction(res, () => rejectPackageRequest(req.params.id));
 }
 
 // Thông tin của chính user đang đăng nhập. id lấy từ token (req.admin).

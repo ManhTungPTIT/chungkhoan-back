@@ -12,7 +12,11 @@ import {
   unlock,
   remove,
   setPackage,
-  changePass
+  changePass,
+  packageRequest,
+  packageRequestsPending,
+  approvePackage,
+  rejectPackage,
 } from "../controllers/userController.js";
 import { verifyToken, requireAdmin } from "../middlewares/authMiddleware.js";
 
@@ -23,10 +27,16 @@ router.post("/login", login);
 router.get("/me", me);
 router.get("/stats", verifyToken, stats);
 router.patch("/changePassword", verifyToken, changePass)
+router.post("/packageRequest", verifyToken, packageRequest)
 
 // Quản lý người dùng — chỉ admin
 router.get("/", verifyToken, requireAdmin, list);
 router.get("/pending", verifyToken, requireAdmin, pending);
+// Yêu cầu gói chờ duyệt (đặt trước /:id/... — prefix tĩnh 'package-request' nên
+// không đụng các route param, nhưng để nhóm cho rõ).
+router.get("/package-request/pending", verifyToken, requireAdmin, packageRequestsPending);
+router.patch("/package-request/:id/approve", verifyToken, requireAdmin, approvePackage);
+router.patch("/package-request/:id/reject", verifyToken, requireAdmin, rejectPackage);
 router.patch("/:id/approve", verifyToken, requireAdmin, approve);
 router.patch("/:id/reject", verifyToken, requireAdmin, reject);
 router.patch("/:id/lock", verifyToken, requireAdmin, lock);

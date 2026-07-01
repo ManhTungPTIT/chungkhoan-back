@@ -76,6 +76,79 @@ export async function changePassword(id, currentPassword, newPassword) {
   return true;
 }
 
+// Cộng `days` vào hạn gói: còn hạn → cộng dồn số ngày còn lại, đã hết/chưa có →
+// tính từ hôm nay. Dùng chung cho duyệt yêu cầu gói và admin đặt gói tay.
+function extendExpiry(user, days) {
+  const now = Date.now();
+  const current = user.expiresAt ? new Date(user.expiresAt).getTime() : 0;
+  const base = current > now ? current : now;
+  user.expiresAt = new Date(base + days * 24 * 60 * 60 * 1000);
+}
+
+// Người dùng gửi yêu cầu đăng ký gói (chờ admin duyệt). FE gửi { days }. Ghi đè
+// yêu cầu cũ nếu có. CHƯA đụng expiresAt — chỉ áp khi admin duyệt.
+export async function requestPackage(id, days) {
+  const n = Number(days);
+  if (!Number.isFinite(n) || n <= 0) throw new Error("Invalid package");
+
+  const user = await User.findById(id);
+  if (!user) throw new Error("User not found");
+
+  user.packageRequest = { days: n, status: "pending", requestedAt: new Date() };
+  await user.save();
+
+  return user.packageRequest;
+}
+
+// Danh sách yêu cầu gói đang chờ duyệt (cho admin). id = user._id vì mỗi user chỉ
+// có một yêu cầu tại một thời điểm.
+export async function listPendingPackageRequests() {
+  const users = await User.find(
+    { "packageRequest.status": "pending" },
+    "fullName email phoneNumber packageRequest",
+  );
+  return users.map((u) => ({
+    id: u._id,
+    user: {
+      id: u._id,
+      fullName: u.fullName,
+      email: u.email,
+      phoneNumber: u.phoneNumber,
+    },
+    days: u.packageRequest.days,
+    requestedAt: u.packageRequest.requestedAt,
+  }));
+}
+
+// Admin duyệt yêu cầu gói: cộng days vào expiresAt (cộng dồn), đánh dấu approved.
+export async function approvePackageRequest(id) {
+  const user = await User.findById(id);
+  if (!user) throw new Error("User not found");
+  if (user.packageRequest?.status !== "pending") {
+    throw new Error("No pending package request");
+  }
+  extendExpiry(user, user.packageRequest.days);
+  user.packageRequest.status = "approved";
+  await user.save();
+  return {
+    id: user._id,
+    expiresAt: user.expiresAt,
+    status: user.packageRequest.status,
+  };
+}
+
+// Admin từ chối yêu cầu gói.
+export async function rejectPackageRequest(id) {
+  const user = await User.findById(id);
+  if (!user) throw new Error("User not found");
+  if (user.packageRequest?.status !== "pending") {
+    throw new Error("No pending package request");
+  }
+  user.packageRequest.status = "rejected";
+  await user.save();
+  return { id: user._id, status: user.packageRequest.status };
+}
+
 // Thông tin của chính user đang đăng nhập (cho trang InfoUser). Chỉ lấy các
 // trường cần hiển thị — không kéo password.
 export async function getCurrentUser(id) {
@@ -194,10 +267,7 @@ export async function setUserPackage(id, days) {
   const user = await User.findById(id);
   if (!user) throw new Error("User not found");
 
-  const now = Date.now();
-  const current = user.expiresAt ? new Date(user.expiresAt).getTime() : 0;
-  const base = current > now ? current : now;
-  user.expiresAt = new Date(base + n * 24 * 60 * 60 * 1000);
+  extendExpiry(user, n);
   await user.save();
 
   return { id: user._id, expiresAt: user.expiresAt };
