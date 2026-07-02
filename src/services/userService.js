@@ -156,7 +156,7 @@ export async function getCurrentUser(id) {
   const admin = await Admin.findById(id);
   
   if (!user && !admin) throw new Error("User not found");
-  if(user) return {
+  if (user) return {
     id: user._id,
     fullName: user.fullName,
     email: user.email,
@@ -164,9 +164,11 @@ export async function getCurrentUser(id) {
     phoneNumber: user.phoneNumber,
     avatarUrl: user.avatarUrl,
   };
-  else{
-    throw new Error("You are admin")
-  }
+  return {
+    id: admin._id,
+    username: admin.username,
+    role: admin.role,
+  };
 }
 
 // Thống kê người dùng. online = có lastActive trong vòng ONLINE_WINDOW_MS gần

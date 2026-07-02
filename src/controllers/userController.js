@@ -111,9 +111,8 @@ export function rejectPackage(req, res) {
 // Thông tin của chính user đang đăng nhập. id lấy từ token (req.admin).
 export async function me(req, res) {
   try {
-    const data = jwt.decode(req.query.token);
-    console.log(data)
-    res.json(await getCurrentUser(data.id));
+    
+    res.json(await getCurrentUser(req.admin.id));
   } catch (error) {
     const status = error.message === "User not found" ? 404 : 500;
     res.status(status).json({ message: error.message });

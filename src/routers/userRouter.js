@@ -24,7 +24,7 @@ const router = Router();
 
 router.post("/register", register);
 router.post("/login", login);
-router.get("/me", me);
+router.get("/me",verifyToken, me);
 router.get("/stats", verifyToken, stats);
 router.patch("/changePassword", verifyToken, changePass)
 router.post("/packageRequest", verifyToken, packageRequest)
