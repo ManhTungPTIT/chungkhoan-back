@@ -55,6 +55,7 @@ const userSchema = new mongoose.Schema(
     packageRequest: {
       type: new mongoose.Schema(
         {
+          titles: {type: String},
           days: { type: Number },
           status: {
             type: String,

@@ -58,7 +58,17 @@ export async function loginUser({ email, phoneNumber, password }) {
   return {
     accessToken,
     refreshToken,
-    user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role, phoneNumber: user.phoneNumber, avatarUrl: user.avatarUrl },
+    user: {
+      id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      phoneNumber: user.phoneNumber,
+      avatarUrl: user.avatarUrl,
+      // Gói đang dùng = yêu cầu ĐÃ duyệt. packageRequest có thể null (chưa từng
+      // yêu cầu) hoặc pending/rejected — các trạng thái đó chưa phải gói đang dùng.
+      packageTitle: activePackageTitle(user),
+    },
   };
 }
 
@@ -76,6 +86,13 @@ export async function changePassword(id, currentPassword, newPassword) {
   return true;
 }
 
+// Tên gói đang dùng của user: chỉ tính yêu cầu ĐÃ được duyệt; chưa từng yêu cầu
+// (null) hoặc đang pending/rejected → null. Dùng cho payload login.
+function activePackageTitle(user) {
+  const req = user.packageRequest;
+  return req?.status === "approved" ? req.titles ?? null : null;
+}
+
 // Cộng `days` vào hạn gói: còn hạn → cộng dồn số ngày còn lại, đã hết/chưa có →
 // tính từ hôm nay. Dùng chung cho duyệt yêu cầu gói và admin đặt gói tay.
 function extendExpiry(user, days) {
@@ -87,14 +104,14 @@ function extendExpiry(user, days) {
 
 // Người dùng gửi yêu cầu đăng ký gói (chờ admin duyệt). FE gửi { days }. Ghi đè
 // yêu cầu cũ nếu có. CHƯA đụng expiresAt — chỉ áp khi admin duyệt.
-export async function requestPackage(id, days) {
+export async function requestPackage(id,titles, days) {
   const n = Number(days);
   if (!Number.isFinite(n) || n <= 0) throw new Error("Invalid package");
 
   const user = await User.findById(id);
   if (!user) throw new Error("User not found");
 
-  user.packageRequest = { days: n, status: "pending", requestedAt: new Date() };
+  user.packageRequest = { titles: titles , days: n, status: "pending", requestedAt: new Date() };
   await user.save();
 
   return user.packageRequest;
@@ -115,6 +132,7 @@ export async function listPendingPackageRequests() {
       email: u.email,
       phoneNumber: u.phoneNumber,
     },
+    titles: u.packageRequest.titles,
     days: u.packageRequest.days,
     requestedAt: u.packageRequest.requestedAt,
   }));
@@ -163,6 +181,9 @@ export async function getCurrentUser(id) {
     role: user.role,
     phoneNumber: user.phoneNumber,
     avatarUrl: user.avatarUrl,
+    packageRequest: user.packageRequest,
+    // Hạn gói để FE hiển thị "Hết hạn" — thiếu field này InfoUser luôn "Chưa có".
+    expiresAt: user.expiresAt,
   };
   return {
     id: admin._id,
@@ -262,7 +283,10 @@ export function deleteUser(id) {
 // Gia hạn gói: cộng dồn vào hạn còn lại nếu user CHƯA hết hạn, ngược lại
 // (đã hết hạn hoặc chưa có gói) thì tính từ hôm nay. Tránh làm mất số ngày
 // còn lại khi admin gia hạn cho tài khoản vẫn đang hiệu lực.
-export async function setUserPackage(id, days) {
+// Admin đặt gói tay = gói đã duyệt: ghi đè packageRequest (kể cả khi null —
+// user chưa từng yêu cầu) thành bản ghi approved để mọi nơi đọc "gói đang dùng"
+// theo cùng một quy tắc (status === "approved").
+export async function setUserPackage(id, titles, days) {
   const n = Number(days);
   if (!Number.isFinite(n) || n <= 0) throw new Error("Invalid package");
 
@@ -270,6 +294,12 @@ export async function setUserPackage(id, days) {
   if (!user) throw new Error("User not found");
 
   extendExpiry(user, n);
+  user.packageRequest = {
+    titles,
+    days: n,
+    status: "approved",
+    requestedAt: new Date(),
+  };
   await user.save();
 
   return { id: user._id, expiresAt: user.expiresAt };

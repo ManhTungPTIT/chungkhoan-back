@@ -77,12 +77,12 @@ export async function changePass(req, res) {
 // User gửi yêu cầu đăng ký gói (chờ admin duyệt). Danh tính lấy từ token
 // (req.admin.id) — KHÔNG lấy từ body. FE gửi { days }.
 export async function packageRequest(req, res) {
-  const { days } = req.body;
-  if (!days) {
+  const { titles,days } = req.body;
+  if (!days || !titles) {
     return res.status(400).json({ message: "days is required" });
   }
   try {
-    const result = await requestPackage(req.admin.id, days);
+    const result = await requestPackage(req.admin.id,titles, days);
     res.status(201).json({ packageRequest: result });
   } catch (error) {
     const code = error.message === "User not found" ? 404 : 400;
@@ -191,5 +191,5 @@ export function remove(req, res) {
 }
 
 export function setPackage(req, res) {
-  return runUserAction(res, () => setUserPackage(req.params.id, req.body.days));
+  return runUserAction(res, () => setUserPackage(req.params.id, req.body.titles ,req.body.days));
 }
