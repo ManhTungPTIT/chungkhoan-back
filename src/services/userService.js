@@ -123,7 +123,7 @@ export async function listPendingPackageRequests() {
   const users = await User.find(
     { "packageRequest.status": "pending" },
     "fullName email phoneNumber packageRequest",
-  );
+  ).sort({ createdAt: -1 });
   return users.map((u) => ({
     id: u._id,
     user: {
@@ -212,7 +212,7 @@ export async function listPendingUsers() {
   const users = await User.find(
     { status: "pending" },
     "fullName email phoneNumber createdAt",
-  );
+  ).sort({ createdAt: -1 });
   return users.map((u) => ({
     id: u._id,
     fullName: u.fullName,
@@ -246,7 +246,9 @@ export async function rejectUser(id) {
 // Toàn bộ user trừ những bản ghi đã xóa (soft delete).
 export async function listUsers() {
   const users = await User.find(
-    { status: { $ne: "deleted" } },
+    { status: { $nin: ["pending", "deleted" ]  },
+      
+   },
     "fullName email phoneNumber status createdAt expiresAt lastActive",
   ).sort({ createdAt: -1 });
   return users.map((u) => ({
