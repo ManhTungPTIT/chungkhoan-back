@@ -4,13 +4,28 @@ import {Admin} from "../models/adminModel.js"
 import { signTokens } from "../untils/tokenUtils.js";
 import { saveRefreshToken } from "./refreshTokenService.js";
 
-export async function registerUser({ fullName, email, phoneNumber, password }) {
-  if (!email && !phoneNumber) {
-    throw new Error("Email or phone number is required");
+export async function registerUser({
+  fullName,
+  email,
+  phoneNumber,
+  password,
+  broker,
+  brokerAccount,
+}) {
+  const hasBroker = broker && brokerAccount;
+  if (!email && !phoneNumber && !hasBroker) {
+    throw new Error("Email, phone number or securities account is required");
+  }
+  if (broker && !["VPS", "TCBS"].includes(broker)) {
+    throw new Error("Invalid broker");
   }
 
-  // Kiểm trùng theo trường được gửi (email hoặc số điện thoại)
-  const query = email ? { email } : { phoneNumber };
+  // Kiểm trùng theo định danh được gửi (email → phone → số TK toàn cục)
+  const query = email
+    ? { email }
+    : phoneNumber
+    ? { phoneNumber }
+    : { brokerAccount };
   const existing = await User.findOne(query);
   if (existing) throw new Error("Account already exists");
 
@@ -19,6 +34,8 @@ export async function registerUser({ fullName, email, phoneNumber, password }) {
     fullName,
     email,
     phoneNumber,
+    broker: hasBroker ? broker : undefined,
+    brokerAccount: hasBroker ? brokerAccount : undefined,
     password: hashed,
     status: "pending", // chờ admin duyệt mới đăng nhập được
     lastActive: new Date(),
@@ -27,8 +44,23 @@ export async function registerUser({ fullName, email, phoneNumber, password }) {
   return { status: "pending" };
 }
 
-export async function loginUser({ email, phoneNumber, password }) {
-  const query = email ? { email } : { phoneNumber };
+export async function loginUser({ account, email, phoneNumber, password }) {
+  // account = 1 chuỗi tự do (email / SĐT / số TK) — dò cả 3 field, giống hệt
+  // cách email/phone hoạt động (email lưu lowercase nên so khớp bản thường hoá).
+  // Vẫn nhận email/phoneNumber rời để tương thích caller cũ.
+  let query;
+  if (account) {
+    const id = String(account).trim();
+    query = {
+      $or: [
+        { email: id.toLowerCase() },
+        { phoneNumber: id },
+        { brokerAccount: id },
+      ],
+    };
+  } else {
+    query = email ? { email } : { phoneNumber };
+  }
   const user = await User.findOne(query);
   if (!user) throw new Error("Invalid credentials");
 
@@ -211,13 +243,15 @@ export async function getUserStats() {
 export async function listPendingUsers() {
   const users = await User.find(
     { status: "pending" },
-    "fullName email phoneNumber createdAt",
+    "fullName email phoneNumber broker brokerAccount createdAt",
   ).sort({ createdAt: -1 });
   return users.map((u) => ({
     id: u._id,
     fullName: u.fullName,
     email: u.email,
     phoneNumber: u.phoneNumber,
+    broker: u.broker,
+    brokerAccount: u.brokerAccount,
     createdAt: u.createdAt,
   }));
 }
@@ -247,15 +281,17 @@ export async function rejectUser(id) {
 export async function listUsers() {
   const users = await User.find(
     { status: { $nin: ["pending", "deleted" ]  },
-      
+
    },
-    "fullName email phoneNumber status createdAt expiresAt lastActive",
+    "fullName email phoneNumber broker brokerAccount status createdAt expiresAt lastActive",
   ).sort({ createdAt: -1 });
   return users.map((u) => ({
     id: u._id,
     fullName: u.fullName,
     email: u.email,
     phoneNumber: u.phoneNumber,
+    broker: u.broker,
+    brokerAccount: u.brokerAccount,
     status: u.status,
     createdAt: u.createdAt,
     expiresAt: u.expiresAt,

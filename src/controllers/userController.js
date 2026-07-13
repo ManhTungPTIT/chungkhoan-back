@@ -21,15 +21,24 @@ import { setRefreshCookie } from "../untils/cookieUtils.js";
 import jwt from "jsonwebtoken";
 
 export async function register(req, res) {
-  const { fullName, email, phoneNumber, password } = req.body;
-  if (!fullName || !password || (!email && !phoneNumber)) {
+  const { fullName, email, phoneNumber, password, broker, brokerAccount } = req.body;
+  const hasBroker = broker && brokerAccount;
+  if (!fullName || !password || (!email && !phoneNumber && !hasBroker)) {
     return res.status(400).json({
-      message: "fullName, password and email or phone number are required",
+      message:
+        "fullName, password and one of email / phone number / securities account are required",
     });
   }
 
   try {
-    const result = await registerUser({ fullName, email, phoneNumber, password });
+    const result = await registerUser({
+      fullName,
+      email,
+      phoneNumber,
+      password,
+      broker,
+      brokerAccount,
+    });
     res.status(201).json(result);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -37,15 +46,17 @@ export async function register(req, res) {
 }
 
 export async function login(req, res) {
-  const { email, phoneNumber, password } = req.body;
-  if (!password || (!email && !phoneNumber)) {
-    return res
-      .status(400)
-      .json({ message: "Email or phone number and password are required" });
+  const { account, email, phoneNumber, password } = req.body;
+  if (!password || (!account && !email && !phoneNumber)) {
+    return res.status(400).json({
+      message:
+        "Password and account (email / phone number / securities account) are required",
+    });
   }
 
   try {
     const { accessToken, refreshToken, user } = await loginUser({
+      account,
       email,
       phoneNumber,
       password,

@@ -27,6 +27,22 @@ const userSchema = new mongoose.Schema(
       sparse: true,
       trim: true,
     },
+    // Định danh chứng khoán: sàn (thuộc tính để lọc VPS/TCBS ở admin) + số tài
+    // khoản. brokerAccount là ĐỊNH DANH ĐĂNG NHẬP giống email/phone — unique
+    // sparse toàn hệ thống để gõ 1 mình số TK là đủ tra ra user (không cần chọn
+    // sàn lúc login). broker KHÔNG tham gia uniqueness.
+    broker: {
+      type: String,
+      enum: ["VPS", "TCBS"],
+      required: false,
+    },
+    brokerAccount: {
+      type: String,
+      required: false,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
     avatarUrl: {
       type: String,
       default:
