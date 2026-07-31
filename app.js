@@ -6,11 +6,14 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRouter from "./src/routers/authRouter.js";
 import userRouter from "./src/routers/userRouter.js";
+import { buildAllowedOrigins } from "./src/untils/corsOrigins.js";
 
 const app = express();
+// Gồm cả origin của app native (capacitor://localhost, https://localhost) —
+// xem src/untils/corsOrigins.js.
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: buildAllowedOrigins(),
     credentials: true,
   }),
 );
