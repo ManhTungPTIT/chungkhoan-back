@@ -112,8 +112,8 @@ describe("đăng nhập admin", () => {
 describe("refresh", () => {
   it("client app: đọc refresh token từ body, trả token ĐÃ XOAY VÒNG về body", async () => {
     // BE xoay vòng refresh token mỗi lần refresh và coi token cũ dùng lại là
-    // đánh cắp (authService revokeAllForSubject). App PHẢI nhận được token mới,
-    // không trả về là lần refresh kế tiếp giết sạch phiên của người dùng.
+    // đánh cắp (authService thu hồi phiên đó — xem revokeSession). App PHẢI nhận
+    // được token mới, không trả về là lần refresh kế tiếp giết phiên người dùng.
     refreshAccessToken.mockResolvedValue({
       accessToken: "at2",
       refreshToken: "rt2",
