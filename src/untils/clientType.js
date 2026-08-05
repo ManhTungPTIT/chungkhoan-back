@@ -31,3 +31,17 @@ export function readRefreshToken(req, cookieName) {
     ? req?.body?.refreshToken
     : req?.cookies?.[cookieName];
 }
+
+export const WEB_CLIENT = "web";
+
+/**
+ * Nền tảng của request. Whitelist ĐÓNG: mọi thứ không phải đúng chuỗi "app" đều
+ * là "web".
+ *
+ * Đây là ràng buộc bảo mật chứ không phải chuyện gọn code. Trần phiên là "một
+ * phiên mỗi nền tảng", nên mỗi giá trị nền tảng lạ lọt qua được là một chỗ ngồi
+ * mới — người dùng chỉ cần đổi header là có thêm phiên.
+ */
+export function readPlatform(req) {
+  return isAppClient(req) ? APP_CLIENT : WEB_CLIENT;
+}
