@@ -10,6 +10,7 @@ import {
 } from "../untils/cookieUtils.js";
 import { isAppClient, readPlatform, readRefreshToken } from "../untils/clientType.js";
 import { AUTH_ERROR } from "../untils/authErrors.js";
+import { findSessionBySid } from "../services/refreshTokenService.js";
 
 export async function login(req, res) {
   const { username, password } = req.body;
@@ -81,4 +82,40 @@ export async function logout(req, res) {
 // Protected — verifyToken attached the access payload to req.admin.
 export function me(req, res) {
   res.json({ admin: req.admin });
+}
+
+// Heartbeat phiên: FE gọi mỗi ~12s để biết mình còn được đăng nhập không.
+//
+// Đây là nơi DUY NHẤT của chart_back tra DB theo access token — các API khác giữ
+// nguyên stateless. Nó tồn tại vì server KHÔNG đẩy được tin cho máy bị đá (Express
+// thuần, không WS/SSE), mà màn hình chính lấy dữ liệu từ BE Python nên tự nó
+// chẳng bao giờ gọi tới đây. Xem specs 2026-08-05-session-instant-kick-design.md.
+//
+// KHÔNG xử lý gì thêm khi 401: interceptor của FE sẽ thử /auth/refresh, nhánh 2 ở
+// đó trả SESSION_SUPERSEDED rồi tự dọn token và chuyển về /login kèm lý do.
+export async function sessionStatus(req, res) {
+  const sid = req.admin?.sid;
+  // Token cấp trước khi có khái niệm phiên: coi như còn sống, để deploy không
+  // đăng xuất toàn bộ người đang dùng. Chúng tự hết trong 7 ngày.
+  if (!sid) return res.json({ alive: true });
+
+  const session = await findSessionBySid(sid);
+  if (!session) {
+    return res.status(401).json({
+      code: AUTH_ERROR.INVALID_TOKEN,
+      message: "Invalid or expired refresh token",
+    });
+  }
+  if (!session.revokedAt) return res.json({ alive: true });
+
+  if (session.revokedReason === "superseded") {
+    return res.status(401).json({
+      code: AUTH_ERROR.SESSION_SUPERSEDED,
+      message: "Tài khoản đã đăng nhập ở thiết bị khác",
+    });
+  }
+  return res.status(401).json({
+    code: AUTH_ERROR.INVALID_TOKEN,
+    message: "Invalid or expired refresh token",
+  });
 }

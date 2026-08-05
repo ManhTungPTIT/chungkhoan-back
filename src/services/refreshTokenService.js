@@ -38,6 +38,15 @@ export async function findSessionByToken(refreshToken) {
   return RefreshToken.findOne({ tokenHash: hashToken(refreshToken) });
 }
 
+/**
+ * Hàng phiên theo `sid` — KỂ CẢ đã thu hồi, caller đọc `revokedReason`.
+ *
+ * Mỗi sid chỉ có ĐÚNG MỘT hàng vì xoay vòng cập nhật tại chỗ, nên không cần sort.
+ */
+export async function findSessionBySid(sid) {
+  return RefreshToken.findOne({ sid });
+}
+
 /** Phiên còn sống mà token này VỪA bị xoay khỏi, còn trong cửa sổ ân hạn. */
 export async function findSessionByPrevToken(refreshToken) {
   return RefreshToken.findOne({
