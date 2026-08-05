@@ -8,7 +8,7 @@ import {
   clearRefreshCookie,
   REFRESH_COOKIE_NAME,
 } from "../untils/cookieUtils.js";
-import { isAppClient, readRefreshToken } from "../untils/clientType.js";
+import { isAppClient, readPlatform, readRefreshToken } from "../untils/clientType.js";
 
 export async function login(req, res) {
   const { username, password } = req.body;
@@ -17,7 +17,9 @@ export async function login(req, res) {
   }
 
   try {
-    const { accessToken, refreshToken, admin } = await loginAdmin(username, password);
+    const { accessToken, refreshToken, admin } = await loginAdmin(username, password, {
+      platform: readPlatform(req),
+    });
     // App không nhận được cookie cross-origin → trả refresh token trong body để
     // app tự cất vào secure storage (xem untils/clientType.js).
     if (isAppClient(req)) {

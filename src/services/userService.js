@@ -2,7 +2,11 @@ import bcrypt from "bcryptjs";
 import { User } from "../models/userModel.js";
 import {Admin} from "../models/adminModel.js"
 import { signTokens } from "../untils/tokenUtils.js";
-import { saveRefreshToken } from "./refreshTokenService.js";
+import {
+  createSession,
+  newSessionId,
+  revokeLivePlatformSessions,
+} from "./refreshTokenService.js";
 
 export async function registerUser({
   fullName,
@@ -44,7 +48,13 @@ export async function registerUser({
   return { status: "pending" };
 }
 
-export async function loginUser({ account, email, phoneNumber, password }) {
+export async function loginUser({
+  account,
+  email,
+  phoneNumber,
+  password,
+  platform = "web",
+}) {
   // account = 1 chuỗi tự do (email / SĐT / số TK) — dò cả 3 field, giống hệt
   // cách email/phone hoạt động (email lưu lowercase nên so khớp bản thường hoá).
   // Vẫn nhận email/phoneNumber rời để tương thích caller cũ.
@@ -80,12 +90,27 @@ export async function loginUser({ account, email, phoneNumber, password }) {
   user.lastActive = new Date();
   await user.save();
 
+  const sid = newSessionId();
+
+  // Chống chia sẻ tài khoản: mỗi user tối đa 1 phiên web + 1 phiên app. Đá phiên
+  // cũ CÙNG nền tảng, không đụng nền tảng kia. Phải chạy TRƯỚC khi tạo phiên mới
+  // — đảo thứ tự là tự đá luôn phiên vừa tạo.
+  await revokeLivePlatformSessions({ subjectId: user._id, platform });
+
   const { accessToken, refreshToken } = signTokens({
     id: user._id,
     email: user.email,
     role: user.role,
+    sid,
+    platform,
   });
-  await saveRefreshToken({ subjectId: user._id, role: user.role, refreshToken });
+  await createSession({
+    subjectId: user._id,
+    role: user.role,
+    platform,
+    sid,
+    refreshToken,
+  });
 
   return {
     accessToken,

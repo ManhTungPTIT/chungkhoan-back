@@ -100,17 +100,6 @@ export async function revokeSessionByToken(refreshToken, reason = "logout") {
 // Giữ để authService/userService chưa sửa vẫn chạy. Task 4 gỡ saveRefreshToken,
 // Task 5 gỡ ba hàm còn lại. KHÔNG dùng cho code mới.
 
-/** @deprecated dùng createSession */
-export async function saveRefreshToken({ subjectId, role, refreshToken }) {
-  return createSession({
-    subjectId,
-    role,
-    platform: "web",
-    sid: newSessionId(),
-    refreshToken,
-  });
-}
-
 /** @deprecated dùng findSessionByToken */
 export async function findRefreshToken(refreshToken) {
   return RefreshToken.findOne({ tokenHash: hashToken(refreshToken) });

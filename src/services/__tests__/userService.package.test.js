@@ -14,7 +14,9 @@ vi.mock("../../untils/tokenUtils.js", () => ({
   signTokens: vi.fn(() => ({ accessToken: "at", refreshToken: "rt" })),
 }));
 vi.mock("../refreshTokenService.js", () => ({
-  saveRefreshToken: vi.fn(async () => {}),
+  createSession: vi.fn(async () => {}),
+  revokeLivePlatformSessions: vi.fn(async () => {}),
+  newSessionId: vi.fn(() => "sid-fixed"),
 }));
 
 import { User } from "../../models/userModel.js";

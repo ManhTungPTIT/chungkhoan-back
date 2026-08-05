@@ -3,26 +3,38 @@ import jwt from "jsonwebtoken";
 import { Admin } from "../models/adminModel.js";
 import { signTokens } from "../untils/tokenUtils.js";
 import {
-  saveRefreshToken,
+  createSession,
+  newSessionId,
   findRefreshToken,
   deleteRefreshToken,
   revokeAllForSubject,
 } from "./refreshTokenService.js";
 
-export async function loginAdmin(username, password) {
+// Admin KHÔNG bị giới hạn phiên (xem specs 2026-08-05): vẫn ghi platform/sid để
+// tra log, nhưng không đá phiên cũ.
+export async function loginAdmin(username, password, { platform = "web" } = {}) {
   const admin = await Admin.findOne({ username : username  });
-  
+
   if (!admin) throw new Error("Tài khoản sai");
 
   const valid = await bcrypt.compare(password, admin.password);
   if (!valid) throw new Error("mật khẩu sai");
 
+  const sid = newSessionId();
   const { accessToken, refreshToken } = signTokens({
     id: admin._id,
     username: admin.username,
     role: admin.role,
+    sid,
+    platform,
   });
-  await saveRefreshToken({ subjectId: admin._id, role: admin.role, refreshToken });
+  await createSession({
+    subjectId: admin._id,
+    role: admin.role,
+    platform,
+    sid,
+    refreshToken,
+  });
 
   return {
     accessToken,
@@ -59,7 +71,13 @@ export async function refreshAccessToken(refreshTokenFromCookie) {
   if (payload.email) tokenPayload.email = payload.email;
 
   const { accessToken, refreshToken } = signTokens(tokenPayload);
-  await saveRefreshToken({ subjectId: payload.id, role: payload.role, refreshToken });
+  await createSession({
+    subjectId: payload.id,
+    role: payload.role,
+    platform: payload.platform ?? "web",
+    sid: payload.sid ?? newSessionId(),
+    refreshToken,
+  });
 
   return { accessToken, refreshToken };
 }

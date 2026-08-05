@@ -18,7 +18,7 @@ import {
   rejectPackageRequest,
 } from "../services/userService.js";
 import { setRefreshCookie } from "../untils/cookieUtils.js";
-import { isAppClient } from "../untils/clientType.js";
+import { isAppClient, readPlatform } from "../untils/clientType.js";
 import jwt from "jsonwebtoken";
 
 export async function register(req, res) {
@@ -61,6 +61,7 @@ export async function login(req, res) {
       email,
       phoneNumber,
       password,
+      platform: readPlatform(req),
     });
     // App (Capacitor) chạy cross-origin nên không nhận được cookie refresh →
     // trả token trong body để app cất vào secure storage (xem untils/clientType.js).
