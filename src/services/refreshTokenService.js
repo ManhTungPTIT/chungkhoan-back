@@ -95,22 +95,3 @@ export async function revokeSessionByToken(refreshToken, reason = "logout") {
     { $set: { revokedAt: new Date(), revokedReason: reason } },
   );
 }
-
-// ─── Cầu tạm ───────────────────────────────────────────────────────────────
-// Giữ để authService/userService chưa sửa vẫn chạy. Task 4 gỡ saveRefreshToken,
-// Task 5 gỡ ba hàm còn lại. KHÔNG dùng cho code mới.
-
-/** @deprecated dùng findSessionByToken */
-export async function findRefreshToken(refreshToken) {
-  return RefreshToken.findOne({ tokenHash: hashToken(refreshToken) });
-}
-
-/** @deprecated dùng revokeSessionByToken */
-export async function deleteRefreshToken(refreshToken) {
-  return RefreshToken.deleteOne({ tokenHash: hashToken(refreshToken) });
-}
-
-/** @deprecated dùng revokeSession — thu hồi cả tài khoản là quá tay */
-export async function revokeAllForSubject(subjectId) {
-  return RefreshToken.deleteMany({ subjectId });
-}

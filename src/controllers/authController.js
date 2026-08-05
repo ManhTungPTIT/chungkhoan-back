@@ -9,6 +9,7 @@ import {
   REFRESH_COOKIE_NAME,
 } from "../untils/cookieUtils.js";
 import { isAppClient, readPlatform, readRefreshToken } from "../untils/clientType.js";
+import { AUTH_ERROR } from "../untils/authErrors.js";
 
 export async function login(req, res) {
   const { username, password } = req.body;
@@ -36,23 +37,32 @@ export async function refresh(req, res) {
   const app = isAppClient(req);
   const token = readRefreshToken(req, REFRESH_COOKIE_NAME);
   if (!token) {
-    return res.status(401).json({ message: "Refresh token is required" });
+    return res.status(401).json({
+      code: AUTH_ERROR.INVALID_TOKEN,
+      message: "Refresh token is required",
+    });
   }
 
   try {
     const { accessToken, refreshToken } = await refreshAccessToken(token);
-    // BE xoay vòng refresh token mỗi lần refresh và coi token cũ dùng lại là dấu
-    // hiệu bị đánh cắp (authService thu hồi TOÀN BỘ phiên của chủ thể). Nên app
-    // BẮT BUỘC phải nhận được token mới và ghi đè bản đang giữ.
+    // BE xoay vòng refresh token mỗi lần refresh, nên app BẮT BUỘC phải nhận
+    // được token mới và ghi đè bản đang giữ.
+    //
+    // Trừ nhánh ân hạn (hai tab đua nhau): nó KHÔNG trả refresh token vì bản mới
+    // đã nằm trong cookie/secure storage rồi — ghi đè bằng undefined ở đây là tự
+    // đăng xuất người dùng.
     if (app) {
-      return res.json({ accessToken, refreshToken });
+      return res.json(refreshToken ? { accessToken, refreshToken } : { accessToken });
     }
-    setRefreshCookie(res, refreshToken);
+    if (refreshToken) setRefreshCookie(res, refreshToken);
     res.json({ accessToken });
   } catch (error) {
     // App không có cookie để xoá; gọi clearRefreshCookie sẽ gửi Set-Cookie thừa.
     if (!app) clearRefreshCookie(res);
-    res.status(401).json({ message: error.message });
+    res.status(401).json({
+      code: error.code ?? AUTH_ERROR.INVALID_TOKEN,
+      message: error.message,
+    });
   }
 }
 

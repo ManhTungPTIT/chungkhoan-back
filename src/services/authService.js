@@ -4,11 +4,14 @@ import { Admin } from "../models/adminModel.js";
 import { signTokens } from "../untils/tokenUtils.js";
 import {
   createSession,
+  findSessionByPrevToken,
+  findSessionByToken,
   newSessionId,
-  findRefreshToken,
-  deleteRefreshToken,
-  revokeAllForSubject,
+  revokeSession,
+  revokeSessionByToken,
+  rotateSessionToken,
 } from "./refreshTokenService.js";
+import { AUTH_ERROR, authError } from "../untils/authErrors.js";
 
 // Admin KHÔNG bị giới hạn phiên (xem specs 2026-08-05): vẫn ghi platform/sid để
 // tra log, nhưng không đá phiên cũ.
@@ -43,46 +46,79 @@ export async function loginAdmin(username, password, { platform = "web" } = {}) 
   };
 }
 
-// Verify the cookie's refresh JWT, confirm it is still in the DB, then rotate.
-// Reuse of an already-rotated (valid but deleted) token → revoke the family.
-export async function refreshAccessToken(refreshTokenFromCookie) {
+/**
+ * Bốn nhánh, xem specs 2026-08-05-session-platform-login-design.md:
+ *   1. token khớp phiên đang sống      → xoay vòng tại chỗ
+ *   2. token khớp phiên ĐÃ thu hồi     → báo lý do, KHÔNG đụng phiên khác
+ *   3. token vừa bị xoay, còn ân hạn   → cấp access token, không xoay tiếp
+ *   4. không khớp gì                   → dùng lại token thật, thu hồi phiên đó
+ */
+export async function refreshAccessToken(presentedToken) {
   let payload;
   try {
-    payload = jwt.verify(refreshTokenFromCookie, process.env.JWT_REFRESH_SECRET);
+    payload = jwt.verify(presentedToken, process.env.JWT_REFRESH_SECRET);
   } catch {
-    throw new Error("Invalid or expired refresh token");
+    throw authError(AUTH_ERROR.INVALID_TOKEN, "Invalid or expired refresh token");
   }
   if (payload.type !== "refresh") {
-    throw new Error("Invalid token type");
+    throw authError(AUTH_ERROR.INVALID_TOKEN, "Invalid token type");
   }
 
-  const stored = await findRefreshToken(refreshTokenFromCookie);
-  if (!stored) {
-    // Token signature is valid but it's not in the DB → it was already rotated.
-    // Treat as theft: kill every session for this subject.
-    await revokeAllForSubject(payload.id);
-    throw new Error("Invalid or expired refresh token");
+  const identity = { id: payload.id, role: payload.role };
+  if (payload.username) identity.username = payload.username;
+  if (payload.email) identity.email = payload.email;
+
+  const session = await findSessionByToken(presentedToken);
+
+  // Nhánh 1 — phiên bình thường.
+  if (session && !session.revokedAt) {
+    const { accessToken, refreshToken } = signTokens({
+      ...identity,
+      sid: session.sid,
+      // `?? "web"` cho hàng tạo trước thay đổi này: chúng không có field
+      // platform, và `default` của schema chỉ áp cho document mới.
+      platform: session.platform ?? "web",
+    });
+    await rotateSessionToken(session, refreshToken);
+    return { accessToken, refreshToken };
   }
 
-  await deleteRefreshToken(refreshTokenFromCookie);
+  // Nhánh 2 — phiên đã chết. Chỉ "superseded" mới là bị đá; "logout"/"reuse" là
+  // lỗi token thường, nói "đã đăng nhập ở thiết bị khác" là sai sự thật.
+  if (session) {
+    if (session.revokedReason === "superseded") {
+      throw authError(
+        AUTH_ERROR.SESSION_SUPERSEDED,
+        "Tài khoản đã đăng nhập ở thiết bị khác",
+      );
+    }
+    throw authError(AUTH_ERROR.INVALID_TOKEN, "Invalid or expired refresh token");
+  }
 
-  const tokenPayload = { id: payload.id, role: payload.role };
-  if (payload.username) tokenPayload.username = payload.username;
-  if (payload.email) tokenPayload.email = payload.email;
+  // Nhánh 3 — hai tab đua nhau. KHÔNG trả refresh token mới: DB chỉ giữ hash nên
+  // không phát lại được token hiện hành, mà cũng không cần — trình duyệt đã nhận
+  // cookie mới từ tab thắng cuộc, tab thua chỉ thiếu mỗi access token.
+  const racing = await findSessionByPrevToken(presentedToken);
+  if (racing) {
+    const { accessToken } = signTokens({
+      ...identity,
+      sid: racing.sid,
+      platform: racing.platform ?? "web",
+    });
+    return { accessToken };
+  }
 
-  const { accessToken, refreshToken } = signTokens(tokenPayload);
-  await createSession({
-    subjectId: payload.id,
-    role: payload.role,
-    platform: payload.platform ?? "web",
-    sid: payload.sid ?? newSessionId(),
-    refreshToken,
-  });
-
-  return { accessToken, refreshToken };
+  // Nhánh 4 — dùng lại token cũ thật. Thu hồi ĐÚNG phiên đó (token family của
+  // OAuth), không phải cả tài khoản: token web rò rỉ không được đá văng app.
+  if (payload.sid) {
+    await revokeSession({ sid: payload.sid, reason: "reuse" });
+  }
+  throw authError(AUTH_ERROR.INVALID_TOKEN, "Invalid or expired refresh token");
 }
 
-export async function logoutSession(refreshTokenFromCookie) {
-  if (!refreshTokenFromCookie) return;
-  await deleteRefreshToken(refreshTokenFromCookie);
+// Đánh dấu chứ không xoá: hàng còn lại là thứ duy nhất cho nhánh 2 của refresh
+// biết đây là "tự đăng xuất" chứ không phải "bị đá".
+export async function logoutSession(refreshToken) {
+  if (!refreshToken) return;
+  await revokeSessionByToken(refreshToken, "logout");
 }
