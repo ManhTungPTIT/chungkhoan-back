@@ -10,6 +10,7 @@ import {
   lockUser,
   unlockUser,
   deleteUser,
+  deleteOwnAccount,
   setUserPackage,
   changePassword,
   requestPackage,
@@ -17,7 +18,7 @@ import {
   approvePackageRequest,
   rejectPackageRequest,
 } from "../services/userService.js";
-import { setRefreshCookie } from "../untils/cookieUtils.js";
+import { setRefreshCookie, clearRefreshCookie } from "../untils/cookieUtils.js";
 import { isAppClient, readPlatform } from "../untils/clientType.js";
 import jwt from "jsonwebtoken";
 
@@ -86,6 +87,24 @@ export async function changePass(req, res) {
   try {
     await changePassword(req.admin.id, currentPassword, newPassword);
     res.status(200).json({ message: "Password changed" });
+  } catch (error) {
+    const code = error.message === "User not found" ? 404 : 400;
+    res.status(code).json({ message: error.message });
+  }
+}
+
+// User tự xóa tài khoản mình — xác nhận bằng mật khẩu. Danh tính lấy từ access
+// token (req.admin.id), KHÔNG lấy từ body. Xóa luôn cookie refresh để trình duyệt
+// không còn giữ chứng chỉ của phiên vừa bị thu hồi.
+export async function deleteMe(req, res) {
+  const { password } = req.body ?? {};
+  if (!password) {
+    return res.status(400).json({ message: "Password is required" });
+  }
+  try {
+    await deleteOwnAccount(req.admin.id, password);
+    clearRefreshCookie(res);
+    res.status(200).json({ message: "Account deleted" });
   } catch (error) {
     const code = error.message === "User not found" ? 404 : 400;
     res.status(code).json({ message: error.message });

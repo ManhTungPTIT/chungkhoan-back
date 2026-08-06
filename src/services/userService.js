@@ -5,6 +5,7 @@ import { signTokens } from "../untils/tokenUtils.js";
 import {
   createSession,
   newSessionId,
+  revokeAllSubjectSessions,
   revokeLivePlatformSessions,
 } from "./refreshTokenService.js";
 
@@ -141,6 +142,29 @@ export async function changePassword(id, currentPassword, newPassword) {
   await user.save();
 
   return true;
+}
+
+// User tự xóa tài khoản mình — xóa MỀM, giống hệt `deleteUser` của admin: giữ bản
+// ghi, chỉ đổi status. Kéo theo: email/SĐT/số TK vẫn nằm trong unique index nên
+// KHÔNG đăng ký lại bằng định danh cũ được (đánh đổi có chủ đích).
+//
+// Thu hồi phiên là phần bắt buộc, không phải dọn dẹp cho đẹp: `verifyToken` chỉ
+// verify chữ ký JWT chứ không tra DB, nên đổi mỗi status thì access token đang cầm
+// vẫn chạy tới lúc hết hạn.
+//
+// Tài khoản admin nằm ở collection Admin → findById ở đây trả null → "User not found".
+export async function deleteOwnAccount(id, password) {
+  const user = await User.findById(id);
+  if (!user) throw new Error("User not found");
+
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) throw new Error("Mật khẩu không chính xác");
+
+  user.status = "deleted";
+  await user.save();
+  await revokeAllSubjectSessions({ subjectId: user._id });
+
+  return { id: user._id, status: user.status };
 }
 
 // Tên gói đang dùng của user: chỉ tính yêu cầu ĐÃ được duyệt; chưa từng yêu cầu

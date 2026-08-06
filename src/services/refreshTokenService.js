@@ -90,6 +90,22 @@ export async function revokeLivePlatformSessions({
   );
 }
 
+/**
+ * Đá MỌI phiên đang sống của tài khoản, không phân biệt nền tảng.
+ *
+ * Khác `revokeLivePlatformSessions` ở chỗ không lọc `platform`: xóa tài khoản thì
+ * cả web lẫn app, mọi thiết bị đều phải rụng — không phải "nhường chỗ" như login.
+ */
+export async function revokeAllSubjectSessions({
+  subjectId,
+  reason = "account_deleted",
+}) {
+  await RefreshToken.updateMany(
+    { subjectId, revokedAt: null },
+    { $set: { revokedAt: new Date(), revokedReason: reason } },
+  );
+}
+
 /** Thu hồi đúng một phiên theo `sid` — phạm vi token family của OAuth. */
 export async function revokeSession({ sid, reason }) {
   await RefreshToken.updateMany(

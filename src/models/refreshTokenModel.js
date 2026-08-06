@@ -26,7 +26,7 @@ const refreshTokenSchema = new mongoose.Schema(
     revokedAt: { type: Date, default: null },
     revokedReason: {
       type: String,
-      enum: ["superseded", "reuse", "logout", null],
+      enum: ["superseded", "reuse", "logout", "account_deleted", null],
       default: null,
     },
     // Mongo TTL monitor deletes the doc once now >= expiresAt

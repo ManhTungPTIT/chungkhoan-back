@@ -13,6 +13,7 @@ import {
   remove,
   setPackage,
   changePass,
+  deleteMe,
   packageRequest,
   packageRequestsPending,
   approvePackage,
@@ -28,6 +29,9 @@ router.get("/me",verifyToken, me);
 router.get("/stats", verifyToken, stats);
 router.patch("/changePassword", verifyToken, changePass)
 router.post("/packageRequest", verifyToken, packageRequest)
+// User tự xóa tài khoản mình. PHẢI khai báo trước `DELETE /:id` bên dưới: Express
+// match theo thứ tự, đặt sau thì "me" rơi vào :id và đi qua requireAdmin → 403.
+router.delete("/me", verifyToken, deleteMe)
 
 // Quản lý người dùng — chỉ admin
 router.get("/", verifyToken, requireAdmin, list);
